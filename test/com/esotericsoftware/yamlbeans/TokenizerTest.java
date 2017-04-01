@@ -1,7 +1,7 @@
 package com.esotericsoftware.yamlbeans;
 
-
 import static org.junit.Assert.*;
+
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -21,6 +21,13 @@ import com.esotericsoftware.yamlbeans.tokenizer.Tokenizer;
 import com.esotericsoftware.yamlbeans.tokenizer.Tokenizer.TokenizerException;
 
 public class TokenizerTest {
+	
+	private Token STREAM_START = new Token(TokenType.STREAM_START);
+	private Token STREAM_END = new Token(TokenType.STREAM_END);
+	private Token VALUE = new Token(TokenType.VALUE);
+	private Token KEY = new Token(TokenType.KEY);
+	private Token BLOCK_MAPPING_START = new Token(TokenType.BLOCK_MAPPING_START);
+	private Token BLOCK_END = new Token(TokenType.BLOCK_END);
 	
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
@@ -53,14 +60,14 @@ public class TokenizerTest {
 	@Test
 	public void testGetNextToken() throws FileNotFoundException {
 		Tokenizer tokenizer = new Tokenizer(new FileReader("test/test1.yml"));
-		assertEquals(tokenizer.getNextToken(), Token.STREAM_START);
-		assertEquals(tokenizer.getNextToken(), Token.BLOCK_MAPPING_START);
-		assertEquals(tokenizer.getNextToken(), Token.KEY);
-		assertEquals(tokenizer.getNextToken().toString(), "<scalar value='12' plain='true' style=''>");
-		assertEquals(tokenizer.getNextToken(), Token.VALUE);
-		assertEquals(tokenizer.getNextToken().toString(), "<scalar value='13' plain='true' style=''>");
-		assertEquals(tokenizer.getNextToken(), Token.BLOCK_END);
-		assertEquals(tokenizer.getNextToken(), Token.STREAM_END);
+		assertEquals(tokenizer.getNextToken()+"", STREAM_START+"");
+		assertEquals(tokenizer.getNextToken()+"", BLOCK_MAPPING_START+"");
+		assertEquals(tokenizer.getNextToken()+"", KEY+"");
+		assertEquals(tokenizer.getNextToken()+"", "<scalar value='12' plain='true' style=''>");
+		assertEquals(tokenizer.getNextToken()+"", VALUE+"");
+		assertEquals(tokenizer.getNextToken()+"", "<scalar value='13' plain='true' style=''>");
+		assertEquals(tokenizer.getNextToken()+"", BLOCK_END+"");
+		assertEquals(tokenizer.getNextToken()+"", STREAM_END+"");
 		assertNull(tokenizer.getNextToken());
 	}
 
@@ -76,14 +83,14 @@ public class TokenizerTest {
 	@Test(expected = IllegalArgumentException.class)
 	public void testTokenizerReader() throws FileNotFoundException {		
 		Tokenizer tokenizer = new Tokenizer(new FileReader("test/test1.yml"));
-		assertEquals(tokenizer.peekNextToken(), Token.STREAM_START);
+		assertEquals(tokenizer.peekNextToken()+"", STREAM_START+"");
 		Tokenizer tokenizer_nbuffered = new Tokenizer((new BufferedReader(new FileReader("test/test1.yml"))));
 		
 		Iterator tokenizer_iter = tokenizer.iterator();
 		Iterator tokenizer_nbuffered_iter = tokenizer_nbuffered.iterator();
 		
 		while(tokenizer_iter.hasNext() || tokenizer_nbuffered_iter.hasNext()){
-			assertEquals(tokenizer_iter.next().toString(), tokenizer_nbuffered_iter.next().toString());
+			assertEquals(tokenizer_iter.next()+"", tokenizer_nbuffered_iter.next()+"");
 		}
 		
 		Tokenizer tokenizer_null = new Tokenizer((FileReader)null);
@@ -102,7 +109,7 @@ public class TokenizerTest {
 		Iterator tokenizer_string_iter = new Tokenizer("12: 13").iterator();
 		
 		while(tokenizer_iter.hasNext() || tokenizer_string_iter.hasNext()){
-			assertEquals(tokenizer_iter.next().toString(), tokenizer_string_iter.next().toString());
+			assertEquals(tokenizer_iter.next()+"", tokenizer_string_iter.next()+"");
 		}
 	}
 	
@@ -125,21 +132,21 @@ public class TokenizerTest {
 	@Test
 	public void testPeekNextToken() throws FileNotFoundException {
 		Tokenizer tokenizer = new Tokenizer(new FileReader("test/test1.yml"));
-		assertEquals(tokenizer.peekNextToken(), Token.STREAM_START);
+		assertEquals(tokenizer.peekNextToken()+"", STREAM_START+"");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken(), Token.BLOCK_MAPPING_START);
+		assertEquals(tokenizer.peekNextToken()+"", BLOCK_MAPPING_START+"");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken(), Token.KEY);
+		assertEquals(tokenizer.peekNextToken()+"", KEY+"");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken().toString(), "<scalar value='12' plain='true' style=''>");
+		assertEquals(tokenizer.peekNextToken()+"", "<scalar value='12' plain='true' style=''>");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken(), Token.VALUE);
+		assertEquals(tokenizer.peekNextToken()+"", VALUE+"");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken().toString(), "<scalar value='13' plain='true' style=''>");
+		assertEquals(tokenizer.peekNextToken()+"", "<scalar value='13' plain='true' style=''>");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken(), Token.BLOCK_END);
+		assertEquals(tokenizer.peekNextToken()+"", BLOCK_END+"");
 		tokenizer.getNextToken();
-		assertEquals(tokenizer.peekNextToken(), Token.STREAM_END);
+		assertEquals(tokenizer.peekNextToken()+"", STREAM_END+"");
 		tokenizer.getNextToken();
 		assertNull(tokenizer.peekNextToken());
 	}
@@ -215,7 +222,7 @@ public class TokenizerTest {
 		Tokenizer tokenizer = new Tokenizer(new FileReader("test/test1.yml"));
 		tokenizer.close();
 		
-		assertEquals(tokenizer.getNextToken(), Token.STREAM_START);
+		assertEquals(tokenizer.getNextToken()+"", STREAM_START+"");
 		tokenizer.getNextToken();
 	}
 
