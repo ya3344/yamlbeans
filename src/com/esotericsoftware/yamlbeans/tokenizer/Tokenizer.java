@@ -15,7 +15,6 @@
  */
 
 package com.esotericsoftware.yamlbeans.tokenizer;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -32,76 +31,18 @@ import java.util.regex.Pattern;
 /** Interprets a YAML document as a stream of tokens.
  * @author <a href="mailto:misc@n4te.com">Nathan Sweet</a>
  * @author <a href="mailto:ola.bini@ki.se">Ola Bini</a> */
-public class Tokenizer {
-	private final static String LINEBR = "\n\u0085\u2028\u2029";
-	private final static String NULL_BL_LINEBR = "\0 \r\n\u0085";
-	private final static String NULL_BL_T_LINEBR = "\0 \t\r\n\u0085";
-	private final static String NULL_OR_OTHER = NULL_BL_T_LINEBR;
-	private final static String NULL_OR_LINEBR = "\0\r\n\u0085";
-	private final static String FULL_LINEBR = "\r\n\u0085";
-	private final static String BLANK_OR_LINEBR = " \r\n\u0085";
-	private final static String S4 = "\0 \t\r\n\u0028[]{}";
-	private final static String ALPHA = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
-	private final static String STRANGE_CHAR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789][-';/?:@&=+$,.!~*()%";
-	private final static String RN = "\r\n";
-	private final static String BLANK_T = " \t";
-	private final static String SPACES_AND_STUFF = "'\"\\\0 \t\r\n\u0085";
-	private final static String DOUBLE_ESC = "\"\\";
-	private final static String NON_ALPHA_OR_NUM = "\0 \t\r\n\u0085?:,]}%@`";
-	private final static Pattern NON_PRINTABLE = Pattern.compile("[^\u0009\n\r\u0020-\u007E\u0085\u00A0-\u00FF]");
-	private final static Pattern NOT_HEXA = Pattern.compile("[^0-9A-Fa-f]");
-	private final static Pattern NON_ALPHA = Pattern.compile("[^-0-9A-Za-z_]");
-	private final static Pattern R_FLOWZERO = Pattern.compile("[\0 \t\r\n\u0085]|(:[\0 \t\r\n\u0028])");
-	private final static Pattern R_FLOWNONZERO = Pattern.compile("[\0 \t\r\n\u0085\\[\\]{},:?]");
-	private final static Pattern END_OR_START = Pattern.compile("^(---|\\.\\.\\.)[\0 \t\r\n\u0085]$");
-	private final static Pattern ENDING = Pattern.compile("^---[\0 \t\r\n\u0085]$");
-	private final static Pattern START = Pattern.compile("^\\.\\.\\.[\0 \t\r\n\u0085]$");
-	private final static Pattern BEG = Pattern
-		.compile("^([^\0 \t\r\n\u0085\\-?:,\\[\\]{}#&*!|>'\"%@]|([\\-?:][^\0 \t\r\n\u0085]))");
+public class Tokenizer extends TokenizerCommon {
 
-	private final static Map<Character, String> ESCAPE_REPLACEMENTS = new HashMap();
-	private final static Map<Character, Integer> ESCAPE_CODES = new HashMap();
 
-	static {
-		ESCAPE_REPLACEMENTS.put('0', "\0");
-		ESCAPE_REPLACEMENTS.put('a', "\u0007");
-		ESCAPE_REPLACEMENTS.put('b', "\u0008");
-		ESCAPE_REPLACEMENTS.put('t', "\u0009");
-		ESCAPE_REPLACEMENTS.put('\t', "\u0009");
-		ESCAPE_REPLACEMENTS.put('n', "\n");
-		ESCAPE_REPLACEMENTS.put('v', "\u000B");
-		ESCAPE_REPLACEMENTS.put('f', "\u000C");
-		ESCAPE_REPLACEMENTS.put('r', "\r");
-		ESCAPE_REPLACEMENTS.put('e', "\u001B");
-		ESCAPE_REPLACEMENTS.put(' ', "\u0020");
-		ESCAPE_REPLACEMENTS.put('"', "\"");
-		ESCAPE_REPLACEMENTS.put('\\', "\\");
-		ESCAPE_REPLACEMENTS.put('N', "\u0085");
-		ESCAPE_REPLACEMENTS.put('_', "\u00A0");
-		ESCAPE_REPLACEMENTS.put('L', "\u2028");
-		ESCAPE_REPLACEMENTS.put('P', "\u2029");
-
-		ESCAPE_CODES.put('x', 2);
-		ESCAPE_CODES.put('u', 4);
-		ESCAPE_CODES.put('U', 8);
-	}
-
-	private boolean done = false;
-	private int flowLevel = 0;
-	private int tokensTaken = 0;
-	private int indent = -1;
-	private boolean allowSimpleKey = true;
-	private boolean eof;
-	private int lineNumber = 0;
-	private int column = 0;
-	private int pointer = 0;
 	private final StringBuilder buffer;
 	private final Reader reader;
-	private final List<Token> tokens = new LinkedList();
+	private boolean done = false;
 	private final List<Integer> indents = new LinkedList();
 	private final Map<Integer, SimpleKey> possibleSimpleKeys = new HashMap();
-	private boolean docStart = false;
-
+	protected final List<Token> tokens = new LinkedList();
+	
+	private char EMPTY = '0';
+	
 	public Tokenizer (Reader reader) {
 		if (reader == null) throw new IllegalArgumentException("reader cannot be null.");
 		if (!(reader instanceof BufferedReader)) reader = new BufferedReader(reader);
@@ -154,35 +95,27 @@ public class Tokenizer {
 		};
 	}
 
-	public int getLineNumber () {
-		return lineNumber;
-	}
-
-	public int getColumn () {
-		return column;
-	}
-
 	public void close () throws IOException {
 		reader.close();
 	}
 
-	private char peek () {
+	public char peek () {
 		if (pointer + 1 > buffer.length()) update(1);
 		return buffer.charAt(pointer);
 	}
 
-	private char peek (int index) {
+	public char peek (int index) {
 		if (pointer + index + 1 > buffer.length()) update(index + 1);
 		return buffer.charAt(pointer + index);
 	}
 
-	private String prefix (int length) {
+	public String prefix (int length) {
 		if (pointer + length >= buffer.length()) update(length);
 		if (pointer + length > buffer.length()) return buffer.substring(pointer, buffer.length());
 		return buffer.substring(pointer, pointer + length);
 	}
 
-	private String prefixForward (int length) {
+	public String prefixForward (int length) {
 		if (pointer + length + 1 >= buffer.length()) update(length + 1);
 		String buff = null;
 		if (pointer + length > buffer.length())
@@ -194,38 +127,38 @@ public class Tokenizer {
 			ch = buff.charAt(i);
 			pointer++;
 			if (LINEBR.indexOf(ch) != -1 || ch == '\r' && buff.charAt(i + 1) != '\n') {
-				column = 0;
-				lineNumber++;
-			} else if (ch != '\uFEFF') column++;
+				TokenizerException.column = 0;
+				TokenizerException.lineNumber++;
+			} else if (ch != '\uFEFF') TokenizerException.column++;
 		}
 		return buff;
 	}
 
-	private void forward () {
+	public void forward () {
 		if (pointer + 2 >= buffer.length()) update(2);
 		char ch1 = buffer.charAt(pointer);
 		pointer++;
 		if (ch1 == '\n' || ch1 == '\u0085' || ch1 == '\r' && buffer.charAt(pointer) != '\n') {
-			column = 0;
-			lineNumber++;
+			TokenizerException.column = 0;
+			TokenizerException.lineNumber++;
 		} else
-			column++;
+			TokenizerException.column++;
 	}
 
-	private void forward (int length) {
+	public void forward (int length) {
 		if (pointer + length + 1 >= buffer.length()) update(length + 1);
 		char ch = 0;
 		for (int i = 0; i < length; i++) {
 			ch = buffer.charAt(pointer);
 			pointer++;
 			if (LINEBR.indexOf(ch) != -1 || ch == '\r' && buffer.charAt(pointer) != '\n') {
-				column = 0;
-				lineNumber++;
-			} else if (ch != '\uFEFF') column++;
+				TokenizerException.column = 0;
+				TokenizerException.lineNumber++;
+			} else if (ch != '\uFEFF') TokenizerException.column++;
 		}
 	}
 
-	private void update (int length) {
+	public void update (int length) {
 		buffer.delete(0, pointer);
 		pointer = 0;
 		while (buffer.length() < length) {
@@ -251,23 +184,25 @@ public class Tokenizer {
 		}
 	}
 
-	private boolean needMoreTokens () {
+	public boolean needMoreTokens () {
 		if (done) return false;
 		return tokens.isEmpty() || nextPossibleSimpleKey() == tokensTaken;
 	}
 
 	private Token fetchMoreTokens () {
 		scanToNextToken();
-		unwindIndent(column);
+		unwindIndent(TokenizerException.column);
 		char ch = peek();
-		boolean colz = column == 0;
+		boolean colz = TokenizerException.column == 0;
 		switch (ch) {
 		case '\0':
 			return fetchStreamEnd();
 		case '\'':
-			return fetchSingle();
+			FetchScanFlowCommon fetchSingle = new FetchScanFlowSingle(reader);
+			return fetchSingle.fetchTok();
 		case '"':
-			return fetchDouble();
+			FetchScanFlowCommon fetchDouble = new FetchScanFlowSingle(reader);
+			return fetchDouble.fetchTok();
 		case '?':
 			if (flowLevel != 0 || NULL_OR_OTHER.indexOf(peek(1)) != -1) return fetchKey();
 			break;
@@ -296,16 +231,27 @@ public class Tokenizer {
 		case ',':
 			return fetchFlowEntry();
 		case '*':
+			//FetchTokenCommon fecthAliasToken = new FetchAliasToken(reader);
+			//return fecthAliasToken.fetchTok(EMPTY);
+			
 			return fetchAlias();
 		case '&':
 			return fetchAnchor();
 		case '!':
 			return fetchTag();
 		case '|':
-			if (flowLevel == 0) return fetchLiteral();
+			if (flowLevel == 0) 
+			{
+				FetchBlockScalarCommon fetchBlockLiteral = new FetchBlockLiteral(reader);
+				return fetchBlockLiteral.fetchTok();
+			}
 			break;
 		case '>':
-			if (flowLevel == 0) return fetchFolded();
+			if (flowLevel == 0) 
+			{
+				FetchBlockScalarCommon fetchBlockFolded = new FetchBlockFolded(reader);
+				return fetchBlockFolded.fetchTok();
+			}
 			break;
 		}
 		if (BEG.matcher(prefix(2)).find()) return fetchPlain();
@@ -314,7 +260,7 @@ public class Tokenizer {
 			+ ch(ch));
 	}
 
-	private int nextPossibleSimpleKey () {
+	public int nextPossibleSimpleKey () {
 		for (Iterator iter = possibleSimpleKeys.values().iterator(); iter.hasNext();) {
 			SimpleKey key = (SimpleKey)iter.next();
 			if (key.tokenNumber > 0) return key.tokenNumber;
@@ -322,11 +268,11 @@ public class Tokenizer {
 		return -1;
 	}
 
-	private void savePossibleSimpleKey () {
-		if (allowSimpleKey) possibleSimpleKeys.put(flowLevel, new SimpleKey(tokensTaken + tokens.size(), column));
+	public void savePossibleSimpleKey () {
+		if (allowSimpleKey) possibleSimpleKeys.put(flowLevel, new SimpleKey(tokensTaken + tokens.size(), TokenizerException.column));
 	}
 
-	private void unwindIndent (int col) {
+	public void unwindIndent (int col) {
 		if (flowLevel != 0) return;
 
 		while (indent > col) {
@@ -427,7 +373,7 @@ public class Tokenizer {
 	private Token fetchBlockEntry () {
 		if (flowLevel == 0) {
 			if (!allowSimpleKey) throw new TokenizerException("Found a sequence entry where it is not allowed.");
-			if (addIndent(column)) tokens.add(Token.BLOCK_SEQUENCE_START);
+			if (addIndent(TokenizerException.column)) tokens.add(Token.BLOCK_SEQUENCE_START);
 		}
 		allowSimpleKey = true;
 		forward();
@@ -438,7 +384,7 @@ public class Tokenizer {
 	private Token fetchKey () {
 		if (flowLevel == 0) {
 			if (!allowSimpleKey) throw new TokenizerException("Found a mapping key where it is not allowed.");
-			if (addIndent(column)) tokens.add(Token.BLOCK_MAPPING_START);
+			if (addIndent(TokenizerException.column)) tokens.add(Token.BLOCK_MAPPING_START);
 		}
 		allowSimpleKey = flowLevel == 0;
 		forward();
@@ -462,11 +408,14 @@ public class Tokenizer {
 	}
 
 	private Token fetchAlias () {
+		
+		
 		savePossibleSimpleKey();
 		allowSimpleKey = false;
 		Token tok = scanAnchor(new AliasToken());
 		tokens.add(tok);
 		return tok;
+
 	}
 
 	private Token fetchAnchor () {
@@ -478,6 +427,7 @@ public class Tokenizer {
 	}
 
 	private Token fetchTag () {
+		
 		savePossibleSimpleKey();
 		allowSimpleKey = false;
 		Token tok = scanTag();
@@ -500,23 +450,10 @@ public class Tokenizer {
 		return tok;
 	}
 
-	private Token fetchSingle () {
-		return fetchFlowScalar('\'');
-	}
-
-	private Token fetchDouble () {
-		return fetchFlowScalar('"');
-	}
-
-	private Token fetchFlowScalar (char style) {
-		savePossibleSimpleKey();
-		allowSimpleKey = false;
-		Token tok = scanFlowScalar(style);
-		tokens.add(tok);
-		return tok;
-	}
-
 	private Token fetchPlain () {
+		//FetchTokenCommon fecthPlainToken = new FetchScanPlain(reader);
+		//return fecthPlainToken.fetchTok();
+		
 		savePossibleSimpleKey();
 		allowSimpleKey = false;
 		Token tok = scanPlain();
@@ -639,7 +576,7 @@ public class Tokenizer {
 		return scanLineBreak();
 	}
 
-	private Token scanAnchor (Token tok) {
+	protected Token scanAnchor (Token tok) {
 		char indicator = peek();
 		String name = indicator == '*' ? "alias" : "anchor";
 		forward();
@@ -666,7 +603,7 @@ public class Tokenizer {
 		return tok;
 	}
 
-	private Token scanTag () {
+	protected Token scanTag () {
 		char ch = peek(1);
 		String handle = null;
 		String suffix = null;
@@ -703,7 +640,7 @@ public class Tokenizer {
 		return new TagToken(handle, suffix);
 	}
 
-	private Token scanBlockScalar (char style) {
+	public Token scanBlockScalar (char style) {
 		boolean folded = style == '>';
 		StringBuilder chunks = new StringBuilder();
 		forward();
@@ -730,7 +667,7 @@ public class Tokenizer {
 		}
 
 		String lineBreak = "";
-		while (column == ind && peek() != '\0') {
+		while (TokenizerException.column == ind && peek() != '\0') {
 			chunks.append(breaks);
 			boolean leadingNonSpace = BLANK_T.indexOf(peek()) == -1;
 			int length = 0;
@@ -740,7 +677,7 @@ public class Tokenizer {
 			// forward(length);
 			lineBreak = scanLineBreak();
 			breaks = scanBlockScalarBreaks(ind);
-			if (column == ind && peek() != '\0') {
+			if (TokenizerException.column == ind && peek() != '\0') {
 				if (folded && lineBreak.equals("\n") && leadingNonSpace && BLANK_T.indexOf(peek()) == -1) {
 					if (breaks.length() == 0) chunks.append(" ");
 				} else
@@ -808,24 +745,24 @@ public class Tokenizer {
 				chunks.append(scanLineBreak());
 			else {
 				forward();
-				if (column > maxIndent) maxIndent = column;
+				if (TokenizerException.column > maxIndent) maxIndent = TokenizerException.column;
 			}
 		return new Object[] {chunks.toString(), maxIndent};
 	}
 
 	private String scanBlockScalarBreaks (int indent) {
 		StringBuilder chunks = new StringBuilder();
-		while (column < indent && peek() == ' ')
+		while (TokenizerException.column < indent && peek() == ' ')
 			forward();
 		while (FULL_LINEBR.indexOf(peek()) != -1) {
 			chunks.append(scanLineBreak());
-			while (column < indent && peek() == ' ')
+			while (TokenizerException.column < indent && peek() == ' ')
 				forward();
 		}
 		return chunks.toString();
 	}
 
-	private Token scanFlowScalar (char style) {
+	protected Token scanFlowScalar (char style) {
 		boolean dbl = style == '"';
 		StringBuilder chunks = new StringBuilder();
 		char quote = peek();
@@ -917,7 +854,7 @@ public class Tokenizer {
 		}
 	}
 
-	private Token scanPlain () {
+	protected Token scanPlain () {
 		/*
 		 * See the specification for details. We add an additional restriction for the flow context: plain scalars in the flow
 		 * context cannot contain ',', ':' and '?'. We also keep track of the `allow_simple_key` flag here. Indentation rules are
@@ -951,7 +888,7 @@ public class Tokenizer {
 			chunks.append(prefixForward(length));
 			// forward(length);
 			spaces = scanPlainSpaces();
-			if (spaces == null || flowLevel == 0 && column < ind) break;
+			if (spaces == null || flowLevel == 0 && TokenizerException.column < ind) break;
 		}
 		return new ScalarToken(chunks.toString(), true);
 	}
@@ -1060,20 +997,7 @@ public class Tokenizer {
 		}
 		return "";
 	}
-
-	private String ch (char ch) {
-		return "'" + ch + "' (" + (int)ch + ")";
-	}
-
-	public class TokenizerException extends RuntimeException {
-		public TokenizerException (String message, Throwable cause) {
-			super("Line " + getLineNumber() + ", column " + getColumn() + ": " + message, cause);
-		}
-
-		public TokenizerException (String message) {
-			this(message, null);
-		}
-	}
+	
 
 	static class SimpleKey {
 		public final int tokenNumber;
